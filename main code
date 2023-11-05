@@ -1,0 +1,182 @@
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <ESP8266WebServer.h>
+
+const char* ssid = "ATIK_HASAN";
+const char* password = "NEWTON280";
+
+const int trigPin = 0;
+const int echoPin = 5;
+const int ledPin = 14;     // LED pin
+const int buzzerPin = 13;  // Buzzer pin
+
+const int mq2Pin = A0;  // MQ2 sensor analog pin
+
+// Define sound velocity in cm/uS
+#define SOUND_VELOCITY 0.034
+#define CM_TO_INCH 0.393701
+
+long duration;
+float distanceCm;
+float distanceInch;
+int mq2Value;
+bool buzzerActivated = false;
+
+const int ledPins[] = {12, 15, 2};  // Array of LED pins
+const int numLeds = sizeof(ledPins) / sizeof(ledPins[0]);
+
+const int delayTime = 500;  // Delay time between each LED blink
+
+ESP8266WebServer server(80);
+
+void handleRoot() {
+  String content = "<html><body>"; 
+
+  //main container
+  content += "<div style=\" max-width: 800px; margin: 20px auto; background-color: #fff; padding: 20px;  border-radius: 5px;box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);\">";
+ 
+ //logo div
+ content += " <div style =\" display: flex; align-items: center;justify-content: center; margin-bottom: 20px;\">";
+  content += "<img src=\"https://studentportal.green.edu.bd/logo.png\" alt=\"Logo\"  style=\"max-width: 250px; height: auto;\">";
+ content += "</div>";
+  content += "<h1 style=\"color: green;  text-align: center;\">Green University of Bangladesh</h1>";
+
+//studdent data
+   content += "<table class='data-table' style='margin-top: 30px; border-collapse: collapse; width: 100%; font-size:19px'>";
+  content += "<tr><th style='padding: 10px; border-bottom: 1px solid #ddd; text-align: left; background-color: #f5f5f5; font-weight: bold;'>Name</th><th style='padding: 10px; border-bottom: 1px solid #ddd; text-align: left; background-color: #f5f5f5; font-weight: bold;'>Student ID</th></tr>";
+  content += "<tr><td style='padding: 10px; border-bottom: 1px solid #ddd; text-align: left;'>MD.ATIK</td><td style='padding: 10px; border-bottom: 1px solid #ddd; text-align: left;'>221902046</td></tr>";
+   content += "<tr><td style='padding: 10px; border-bottom: 1px solid #ddd; text-align: left;'>Mahmuda Sultana Mukta</td><td style='padding: 10px; border-bottom: 1px solid #ddd; text-align: left;'>221902280</td></tr>";
+  content += "</table>";
+
+  content += "<h2 style=\"color: lightbluelinearup;\">Distance Measurement</h2>";
+  content += "<p style=\"color: blue_graytext2;\">Distance (cm): <span id=\"distanceCm\">" + String(distanceCm) + "</span></p>";
+  content += "<p style=\"color: blue_graytext2;\">Distance (inch): <span id=\"distanceInch\">" + String(distanceInch) + "</span></p>";
+  content += "<h2 style=\"color: lightbluelinearup;\">Gas Measurement (MQ2)</h2>";
+  content += "<p style=\"color: blue_graytext2;\">Gas Value: <span id=\"mq2Value\">" + String(mq2Value) + "</span></p>";
+  content += "<button onclick=\"activateBuzzer()\" style=\"   background-color: #009688;      color: #fff;      border: none;  padding: 10px 20px; font-size: 18px; border-radius: 5px; cursor: pointer; margin-top: 20px; transition: background-color 0.3s ease;\">Activate Buzzer</button>";
+ content += "</div>";
+
+  // Add CSS media queries
+  content += "<style>";
+  content += "@media (max-width: 600px) {";
+  content += "  h1 {";
+  content += "    font-size: 24px;";
+  content += "  }";
+  content += "  .measurement-value {";
+  content += "    font-size: 24px;";
+  content += "  }";
+  content += "  .action-button {";
+  content += "    font-size: 16px;";
+  content += "  }";
+  content += "}";
+
+  content += "</style>";
+  content += "</body>";
+  content += "<script>function activateBuzzer() {var xhttp = new XMLHttpRequest();xhttp.open(\"GET\", \"/activateBuzzer\", true);xhttp.send();}</script>";
+  content += "<script>setInterval(function() {updateData();}, 1000);function updateData() {var xhttp = new XMLHttpRequest();xhttp.onreadystatechange = function() {if (this.readyState == 4 && this.status == 200) {var data = JSON.parse(this.responseText);document.getElementById(\"distanceCm\").innerText = data.distanceCm;document.getElementById(\"distanceInch\").innerText = data.distanceInch;document.getElementById(\"mq2Value\").innerText = data.mq2Value;}};xhttp.open(\"GET\", \"/data\", true);xhttp.send();}</script>";
+  content += "</html>";
+  server.send(200, "text/html", content);
+}
+
+void handleData() {
+  String jsonData = "{\"distanceCm\":" + String(distanceCm) + ",\"distanceInch\":" + String(distanceInch) + ",\"mq2Value\":" + String(mq2Value) + ",\"buzzerStatus\":" + String(buzzerActivated) + "}";
+  server.send(200, "application/json", jsonData);
+}
+
+void activateBuzzer() {
+  digitalWrite(buzzerPin, HIGH);
+  delay(1000);
+  digitalWrite(buzzerPin, LOW);
+}
+
+void setup() {
+  Serial.begin(115200);  // Start serial communication
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(ledPin, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
+
+  for (int i = 0; i < numLeds; i++) {
+    pinMode(ledPins[i], OUTPUT);
+  }
+
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  server.on("/", handleRoot);
+  server.on("/data", handleData);
+  server.on("/activateBuzzer", activateBuzzer);
+  server.begin();
+}
+
+void loop() {
+  server.handleClient();
+
+  // Clear the trigPin
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  // Set the trigPin to HIGH state for 10 microseconds
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  // Read the echoPin, measure sound wave travel time in microseconds
+  duration = pulseIn(echoPin, HIGH);
+
+  // Calculate the distance
+  distanceCm = duration * SOUND_VELOCITY / 2;
+
+  // Convert to inches
+  distanceInch = distanceCm * CM_TO_INCH;
+
+  // Read the MQ2 sensor value
+  mq2Value = analogRead(mq2Pin);
+
+  // Print the distance and MQ2 sensor value on the Serial Monitor
+  Serial.print("Distance (cm): ");
+  Serial.println(distanceCm);
+  Serial.print("Distance (inch): ");
+  Serial.println(distanceInch);
+  Serial.print("Gas Value: ");
+  Serial.println(mq2Value);
+
+
+ // Check if distance is more than 20 inches
+  if (distanceInch > 20) {
+    // Blink LED and turn on the buzzer
+    digitalWrite(ledPin, HIGH);
+    digitalWrite(buzzerPin, HIGH);
+    delay(500);
+    digitalWrite(ledPin, LOW);
+    digitalWrite(buzzerPin, LOW);
+    delay(500);
+    
+    // Blink LEDs in sequence
+    for (int i = 0; i < numLeds; i++) {
+      digitalWrite(ledPins[i], HIGH);
+      delay(delayTime);
+      digitalWrite(ledPins[i], LOW);
+    }
+    delay(delayTime);
+  }
+
+  // Check if distance is more than 20 inches and MQ2 value is above a threshold
+  if (distanceInch > 20 || mq2Value > 500) {
+    // Activate the buzzer
+    digitalWrite(buzzerPin, HIGH);
+    buzzerActivated = true;
+  } else {
+    digitalWrite(buzzerPin, LOW);
+    buzzerActivated = false;
+  }
+
+  delay(1000);
+}
