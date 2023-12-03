@@ -7,9 +7,9 @@ const char* password = "NEWTON280";
 
 const int trigPin = 0;
 const int echoPin = 5;
-const int ledPin = 14;     // LED pin
+// const int ledPin = 14;     // LED pin
 const int buzzerPin = 13;  // Buzzer pin
-
+const int runnable = 16;
 const int mq2Pin = A0;  // MQ2 sensor analog pin
 
 // Define sound velocity in cm/uS
@@ -22,8 +22,8 @@ float distanceInch;
 int mq2Value;
 bool buzzerActivated = false;
 
-const int ledPins[] = {12, 15, 2};  // Array of LED pins
-const int numLeds = sizeof(ledPins) / sizeof(ledPins[0]);
+const int ledPins[] = {14, 12, 15, 2};  // Array of LED pins
+const int numLeds = 4;
 
 const int delayTime = 500;  // Delay time between each LED blink
 
@@ -93,8 +93,10 @@ void setup() {
   Serial.begin(115200);  // Start serial communication
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
-  pinMode(ledPin, OUTPUT);
+
   pinMode(buzzerPin, OUTPUT);
+   // initialize digital pin D0 as an output.
+  pinMode(runnable, OUTPUT);
 
   for (int i = 0; i < numLeds; i++) {
     pinMode(ledPins[i], OUTPUT);
@@ -118,6 +120,11 @@ void setup() {
 
 void loop() {
   server.handleClient();
+
+  digitalWrite(runnable, HIGH);   // turn the LED on (HIGH is the voltage level)
+  delay(500);               // wait for 0.5 second
+  digitalWrite(runnable, LOW);    // turn the LED off by making the voltage LOW
+  delay(250);               // wait for 0.5 second
 
   // Clear the trigPin
   digitalWrite(trigPin, LOW);
@@ -152,10 +159,10 @@ void loop() {
  // Check if distance is more than 20 inches
   if (distanceInch > 20) {
     // Blink LED and turn on the buzzer
-    digitalWrite(ledPin, HIGH);
+    
     digitalWrite(buzzerPin, HIGH);
     delay(500);
-    digitalWrite(ledPin, LOW);
+   
     digitalWrite(buzzerPin, LOW);
     delay(500);
     
@@ -169,7 +176,7 @@ void loop() {
   }
 
   // Check if distance is more than 20 inches and MQ2 value is above a threshold
-  if (distanceInch > 20 || mq2Value > 500) {
+  if (distanceInch > 20 || mq2Value > 800) {
     // Activate the buzzer
     digitalWrite(buzzerPin, HIGH);
     buzzerActivated = true;
